@@ -4,8 +4,6 @@ weather_code_list = weather_code.split(" ")
 
 print(weather_code_list)
 
-# this is a new line
-
 #this in another line
 
 print("Hello World!")
