@@ -1,53 +1,23 @@
 import re
 
-class Metar:
-    def __init__(self, data):
-        self.data = data
+from metar_taf_class import*
 
-    def terrain_id(self):
-        print(self.data[0])
+def main():
+    weather_code = input("Entrez le message à décoder : ")
+    message_test(weather_code)
 
-    def wind(self):
-        print(self.data[1])
+def message_test(weather_code):
+    print("testing")
+    weather_code_list = weather_code.split(" ")
 
-    def visibility(self):
-        print(self.data[2])
+    # Indicators to determine if TAF, else is METAR
+    taf_indicator_1 = weather_code_list[0]
+    taf_indicator_2 = len(re.sub("[^0-9]", "", weather_code_list[2]))
 
-    def temperatures(self):
-        print(self.data[3])
+    # First occurence of time FROM-TO contains 8 digits
+    if taf_indicator_1 == "TAF" or taf_indicator_2 == 8:
+        weather_decode = Taf(weather_code_list)
+    else:
+        weather_decode = Metar(weather_code_list)
 
-    def pressure(self):
-        print(self.data[4])
-
-    def trend(self):
-        print(self.data[5])
-
-
-class Taf:
-    def __init__(self, data) -> None:
-        self.data = data
-
-weather_code = input("Entrez le message à décoder : ")
-
-weather_code_list = weather_code.split(" ")
-
-# Indicators to determine if TAF, else is METAR
-taf_indicator_1 = weather_code_list[0]
-taf_indicator_2 = len(re.sub("[^0-9]", "", weather_code_list[2]))
-
-# First occurence of time FROM-TO contains 8 digits
-if taf_indicator_1 == "TAF" or taf_indicator_2 == 8:
-    print("C'est un TAF")
-    weather_decode = Taf(weather_code_list)
-    print(weather_decode.data)
-
-else:
-    print("C'est un METAR")
-    weather_decode = Metar(weather_code_list)
-    print(weather_decode.data)
-    weather_decode.terrain_id()
-    weather_decode.wind()
-    weather_decode.visibility()
-    weather_decode.temperatures()
-    weather_decode.pressure()
-    weather_decode.trend()
+main()
