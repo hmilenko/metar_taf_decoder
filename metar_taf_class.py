@@ -1,26 +1,58 @@
+import re
+
 class Metar:
     def __init__(self, data):
         self.data = data
 
     def terrain_id(self):
-        print(self.data[0])
+        pass
 
     def wind(self):
-        print(self.data[1])
+        wind_info = ""
+        wind_variable = ""
+        gust = False
+        variable = False
+
+        # retrieving wind direction and velocity information
+        for elmt in self.data:
+            if "KT" in elmt:
+                wind_info = elmt
+            if re.match("[0-9][0-9][0-9]V[0-9][0-9][0-9]", elmt):
+                variable = True
+                wind_info += elmt
+
+        # testing presence of gust
+        for item in wind_info:
+            if "G" in item:
+                gust = True
+        
+        # decoding wind
+        if not gust:
+            if not variable:
+                print(f"Wind: {wind_info[:3]}°, {wind_info[3:5]} knots")
+            else:
+                print(f"Wind: {wind_info[:3]}°, {wind_info[3:5]} knots, variable between {wind_info[7:10]}° and {wind_info[11:]}°")
+        else:
+            if not variable:
+                print(f"Wind: {wind_info[:3]}°, {wind_info[3:5]} knots, gusting to {wind_info[6:8]} knots")
+            else:
+                print(f"Wind: {wind_info[:3]}°, {wind_info[3:5]} knots, gusting to {wind_info[6:8]} knots, \
+variable between {wind_info[10:13]}° and {wind_info[14:]}°")
+
 
     def visibility(self):
-        print(self.data[2])
+        pass
 
     def temperatures(self):
-        print(self.data[3])
+        pass
 
     def pressure(self):
-        print(self.data[4])
+        pass
 
     def trend(self):
-        print(self.data[5])
+        pass
 
 
-class Taf:
-    def __init__(self, data) -> None:
+class Taf(Metar):
+    def __init__(self, data):
         self.data = data

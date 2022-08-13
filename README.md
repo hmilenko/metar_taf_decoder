@@ -12,3 +12,6 @@ Inputs : string or list of string [Optional argument : aerodrome minima data pac
 
 Output : List ["Decoded user readable information", "Computer intelligibile format"]
         or List of list ( if several messages to be decoded )
+
+### QUESTIONS:
+Should the decode code be in a class or a function?
