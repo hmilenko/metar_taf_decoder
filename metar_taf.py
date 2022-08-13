@@ -26,7 +26,8 @@ def message_test(weather_code):
 def decoding(weather_decode):
     # weather_decode.terrain_id()
     weather_decode.wind()
-    # weather_decode.visibility()
+    weather_decode.visibility()
+    weather_decode.clouds()
     # weather_decode.temperatures()
     # weather_decode.pressure()
     # weather_decode.trend()
