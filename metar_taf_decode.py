@@ -127,11 +127,12 @@ def weather_code_rvr(weather_code):
     rvr_list = []
     rvr = ""
 
+    # Retrieving RVR
     for item in data:
         if re.match("R[0-9][0-9]/", item) or re.match("R[0-9][0-9][RCL]/", item):
             rvr_list.append(item)
     
-    print(rvr_list)
+    print(rvr_list) # To delete when not necessary anymore
 
     for item in rvr_list:
         runway = item[1:3] if item[3] == "/" else item[1:4]
@@ -179,6 +180,8 @@ def weather_code_rvr(weather_code):
                 rvr += f"RVR runway {runway} {runway_visibility} meters {rvr_trend} ; "
             else:
                 rvr += f"RVR runway {runway} {runway_visibility} meters ; "
+    
+    # Deleting the last characters
     rvr = rvr[:-3]
 
     return rvr
@@ -187,13 +190,83 @@ def weather_code_present_wx(weather_code):
     pass
 
 def weather_code_clouds(weather_code):
-    pass
+    data = weather_code.split(" ")
+    clouds_list = []
+    clouds = ""
+
+    # Retrieving clouds
+    for item in data:
+        if re.match("FEW", item) or re.match("SCT", item) or re.match("BKN", item) or re.match("OVC", item) \
+        or re.match("NSC", item) or re.match("NCD", item) or re.match("VV///", item) or re.match("///CB", item) \
+        or re.match("///TCU", item) or re.match("/////", item):
+            clouds_list.append(item)
+    
+    print(clouds_list) # To delete when not necessary anymore
+
+    if clouds_list == []:
+        return
+
+    for item in clouds_list:
+        # May have to add lines for coverage, ex: for FEW/// ///050 if exists
+        if re.match("FEW", item):
+            clouds += f"Clouds few at {int(item[3:6]) * 100} feet ; "
+        elif re.match("SCT", item):
+            clouds += f"Clouds scattered at {int(item[3:6]) * 100} feet ; "
+        elif re.match("BKN", item):
+            clouds += f"Clouds broken at {int(item[3:6]) * 100} feet ; "
+        elif re.match("OVC", item):
+            clouds += f"Clouds overcast at {int(item[3:6]) * 100} feet ; "
+        elif re.match("NSC", item):
+            clouds += "No significant clouds ; "
+        elif re.match("NCD", item):
+            clouds += "No clouds detected ; "
+        elif re.match("VV///", item):
+            clouds += "Invisible sky ; "
+        elif re.match("///CB", item):
+            clouds += "Cumulonimbus detected without coverage and altitude information ; "
+        elif re.match("///TCU", item):
+            clouds += "Towering cumulus detected without coverage and altitude information ; "
+        elif re.match("/////", item): # May cause an issue with wind information if "/////"
+            clouds += "Clouds information unavailable ; "
+
+    clouds = clouds[:-3]
+
+    return clouds
 
 def weather_code_temperatures(weather_code):
-    pass
+    data = weather_code.split(" ")
+    temperature = ""
+
+    # Retrieving temperature information
+    for item in data:
+        if re.match("^[0-9][0-9]/[0-9][0-9]$", item) or re.match("^[0-9][0-9]/M[0-9][0-9]$", item) \
+        or re.match("^M[0-9][0-9]/M[0-9][0-9]$", item) or re.match("/////", item): # To be mistaken with wind or clouds "/////"
+            temperature = item
+
+    # Displaying decoded temperature information
+    if re.match("^[0-9][0-9]/[0-9][0-9]$", temperature):
+        return f"Temperature {temperature[:2]}°C, dewpoint {temperature[2:]}°C"
+    elif re.match("^[0-9][0-9]/M[0-9][0-9]$", temperature):
+        return f"Temperature {temperature[:2]}°C, dewpoint -{temperature[4:]}°C"
+    elif re.match("^M[0-9][0-9]/M[0-9][0-9]$", temperature):
+        return f"Temperature -{temperature[1:3]}°C, dewpoint -{temperature[5:]}°C"
+    elif re.match("/////", temperature):
+        return "Temperature information unavailable"
 
 def weather_code_pressure(weather_code):
-    pass
+    data = weather_code.split(" ")
+    pressure = ""
+
+    # Retrieving QNH information
+    for item in data:
+        if re.match("Q[0-9]", item) or re.match("Q////", item):
+            pressure = item
+    
+    # Displaying decoded QNH
+    if re.match("Q[0-9]", pressure):
+        return f"QNH {pressure[1:]}"
+    elif re.match("Q////", pressure):
+        return "QNH information unavailable"
 
 def weather_code_trend(weather_code):
     pass
