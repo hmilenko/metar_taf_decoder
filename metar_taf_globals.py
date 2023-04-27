@@ -1,10 +1,8 @@
 global WEATHER_CODE
 global WEATHER_CODE_DECODE
 global TREND
-global TAF
 
 WEATHER_CODE_DECODE = []
-TREND = False
 
 INTENSITY_PROXIMITY = {"-": "low/moderate", "\+": "strong/well formed"}
 DESCRIPTION = {"MI": "shallow", "BC": "patches of", "PR": "partial", "DR": "low drifting below eye level", "BL": "blowing at or above eye level", "SH": "showers of", "TS": "thunderstorms", "FZ": "freezing"}

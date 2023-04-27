@@ -1,53 +1,33 @@
 import re
 
-def weather_code_identification(weather_code, weather_type):
-    if weather_type == "TAF":
-        return "Forcast from"
-    elif weather_type == "METAR":
-        data = weather_code.split(" ")
+from metar_taf_globals import*
 
-        for item in data:
-            if re.match("METAR", item):
-                return "Observation message from"
-            if re.match("SPECI", item):
-                return "Special message from"
-
-def weather_code_arpt_id(weather_code):
-    data = weather_code.split(" ")
-    arpt = ""
+def identification(data):
+    global WEATHER_CODE_DECODE
     
     # Retrieving airport ID
     for item in data:
-        if re.match("^[A-Z][A-Z][A-Z][A-Z]$", item):
-            arpt = item
-    
-    # Will search airport ID in library to display full name
-    return arpt + " airport"
-
-def weather_code_identification_option(weather_code):
-    data = weather_code.split(" ")
-
-    for item in data:
-        if re.match("AUTO", item):
-            return "Automated message"
-        if re.match("COR", item):
-            return "Corrected message"
-
-def weather_code_message_time(weather_code):
-    data = weather_code.split(" ")
-    date = ""
-    time = ""
+        if re.match("^(?!AUTO)[A-Z]{4}$", item):
+            airport = item
+            WEATHER_CODE_DECODE.append(airport + " airport")
     
     # Retrieving message time
     for item in data:
-        if re.match("^[0-9][0-9][0-9][0-9][0-9][0-9]Z$", item):
+        if re.match("^[0-9]{6}Z$", item):
             date = item[:2]
             time = item[2:6]
+            WEATHER_CODE_DECODE.append(f"issued on the {date}th of the current month at {time} UTC.")
+    
+    # Retrieving identification option if exist      
+    for item in data:
+        if re.match("AUTO", item):
+            WEATHER_CODE_DECODE.insert(0, "Automated")
+        if re.match("COR", item):
+            WEATHER_CODE_DECODE.insert(0, "Corrected")
 
-    return f"Date {date} of the month ; Time {time[0]}{time[1]}:{time[2]}{time[3]} UTC"
-
-def weather_code_wind(weather_code):
-    data = weather_code.split(" ")
+def wind(data):
+    global WEATHER_CODE_DECODE
+    
     wind_unit = ""
     wind = ""
     gust = False
@@ -56,14 +36,15 @@ def weather_code_wind(weather_code):
     
     # Retrieving wind
     for item in data:
-        if re.match("[0-9][0-9][0-9][0-9][0-9]KT", item) \
-        or re.match("[0-9][0-9][0-9][0-9][0-9]MPS", item) \
-        or re.match("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]KT", item) \
-        or re.match("[0-9][0-9][0-9][0-9][0-9]G[0-9][0-9]MPS", item) \
-        or re.match("[0-9][0-9][0-9]V[0-9][0-9][0-9]", item) \
+        if re.match("[0-9]{5}KT", item) \
+        or re.match("[0-9]{5}MPS", item) \
+        or re.match("[0-9]{5}G[0-9]{2}KT", item) \
+        or re.match("[0-9]{5}G[0-9]{5}MPS", item) \
+        or re.match("[0-9]{3}V[0-9]{3}", item) \
         or re.search("VRB", item) \
         or re.match("/////", item):
             wind += item
+            break # inserted in case "/////" for temperatures as wind info comes before
     
     # Determine VRB, wind unit and if gust and/or variability
     if re.search("VRB", wind):
@@ -79,60 +60,98 @@ def weather_code_wind(weather_code):
     if re.search("V", wind):
         variability = True
 
-    # Return depending of gust and variability
-    if wind[:5] == "00000":
-        return "Wind calm"
-    if VRB:
-        return f"Wind variable {wind[3:5]} {wind_unit}"
-    if wind[:5] == "/////":
-        return "Wind unavailable"
-    if not gust:
-        if not variability:
-            return f"Wind {wind[:3]}° {wind[3:5]} {wind_unit}"
+    if wind != "":
+        # Return depending of gust and variability
+        if wind[:5] == "00000":
+            WEATHER_CODE_DECODE.append("Wind calm.")
+        elif VRB:
+            WEATHER_CODE_DECODE.append("Wind variable {wind[3:5]} {wind_unit}.")
+        elif wind[:5] == "/////":
+            WEATHER_CODE_DECODE.append("Wind unavailable.")
+        elif not gust:
+            if not variability:
+                WEATHER_CODE_DECODE.append(f"Wind {wind[:3]}° {wind[3:5]} {wind_unit}.")
+            else:
+                WEATHER_CODE_DECODE.append(f"Wind {wind[:3]}° {wind[3:5]} {wind_unit} variable between {wind[5:8]}° and {wind[9:]}°.")
         else:
-            return f"Wind {wind[:3]}° {wind[3:5]} {wind_unit} variable between {wind[5:8]}° and {wind[9:]}°"
-    else:
-        if not variability:
-            return f"Wind {wind[:3]}° {wind[3:5]} {wind_unit} gusting {wind[6:]} {wind_unit}"
-        else:
-            return f"Wind {wind[:3]}° {wind[3:5]} {wind_unit} gusting {wind[6:8]} {wind_unit} variable between {wind[8:11]}° and {wind[12:]}°"
+            if not variability:
+                WEATHER_CODE_DECODE.append(f"Wind {wind[:3]}° {wind[3:5]} {wind_unit} gusting {wind[6:]} {wind_unit}.")
+            else:
+                WEATHER_CODE_DECODE.append(f"Wind {wind[:3]}° {wind[3:5]} {wind_unit} gusting {wind[6:8]} {wind_unit} variable between {wind[8:11]}° and {wind[12:]}°.")
 
-def weather_code_visibility(weather_code):
-    data = weather_code.split(" ")
+def visibility(data):
+    global WEATHER_CODE_DECODE
+    
     visibility = ""
+    visibility_unit = ""
+    sector = ""
     cavok = False
     
     # Retrieving visibility
     for item in data:
         if re.match("CAVOK", item):
-            return "Cieling and Visibility OK"
-        elif re.match("^[0-9][0-9][0-9][0-9]$", item) \
+            WEATHER_CODE_DECODE.append("Cieling and Visibility OK.")
+        elif re.match("^[0-9]{4}$", item) \
         or re.match("////", item) \
-        or re.match("^[0-9][0-9][0-9][0-9][NSEW][NSEW]$", item):
+        or re.match("^[0-9]{4}[NSEW]$", item) \
+        or re.match("^[0-9]{4}[NSEW]{2}$", item):
             visibility += item
+    if re.search("SM", visibility):
+        visibility_unit = "statute miles"
+    else:
+        visibility_unit = "meters"
+    
+    # Determining minimal visibility sector
+    if len(visibility) > 8:      
+        if re.match("^N$", visibility[8:]):
+            sector = "north"
+        elif re.match("^NE$", visibility[8:]):
+            sector = "north east"
+        elif re.match("^E$", visibility[8:]):
+            sector = "east"
+        elif re.match("^SE$", visibility[8:]):
+            sector = "south east"
+        elif re.match("^S$", visibility[8:]):
+            sector = "south"
+        elif re.match("^SW$", visibility[8:]):
+            sector = "south west"
+        elif re.match("^W$", visibility[8:]):
+            sector = "west"
+        elif re.match("^NW$", visibility[8:]):
+            sector = "north west"
+        else:
+            pass
     
     # Returning visibility
     if visibility == "9999":
-        return "Visibility 10 kilometers or more"
+        WEATHER_CODE_DECODE.append("Visibility 10 kilometers or more.")
     elif visibility == "////":
-        return "Visibility unavailable"
+        WEATHER_CODE_DECODE.append("Visibility unavailable.")
     elif len(visibility) == 4:
-        return f"Visibility {visibility} meters"
+        WEATHER_CODE_DECODE.append(f"Visibility {visibility} {visibility_unit}.")
     elif len(visibility) == 10:
-        return f"Dominante visibility {visibility[:4]} meters ; minimal visibility \
-{visibility[4:8] if visibility[4] != '0' else visibility[5:8]} meters {visibility[8:]} sector"
+        WEATHER_CODE_DECODE.append(f"Dominante visibility {visibility[:4]} {visibility_unit} ; minimal visibility \
+{visibility[4:8] if visibility[4] != '0' else visibility[5:8]} {visibility_unit} {sector} sector.")
 
-def weather_code_rvr(weather_code):
-    data = weather_code.split(" ")
+def rvr(data):
+    global WEATHER_CODE_DECODE
+    
     rvr_list = []
     rvr = ""
 
     # Retrieving RVR
     for item in data:
-        if re.match("R[0-9][0-9]/", item) or re.match("R[0-9][0-9][RCL]/", item):
+        if re.match("^R[0-9]{2}/[0-9]{4}$", item) \
+        or re.match("^R[0-9]{2}[RCL]/[0-9]{4}$", item) \
+        or re.match("^R[0-9]{2}/[0-9]{4}[DUN]$", item) \
+        or re.match("^R[0-9]{2}[RCL]/[0-9]{4}[DUN]$", item) \
+        or re.match("^R[0-9]{2}/[MP][0-9]{4}$", item) \
+        or re.match("^R[0-9]{2}[RCL]/[MP][0-9]{4}$", item) \
+        or re.match("^R[0-9]{2}/[MP][0-9]{4}[DUN]$", item) \
+        or re.match("^R[0-9]{2}[RCL]/[MP][0-9]{4}[DUN]$", item) \
+        or re.match("^R[0-9]{2}/////$", item) \
+        or re.match("^R[0-9]{2}[RCL]/////$", item):
             rvr_list.append(item)
-    
-    print(rvr_list) # To delete when not necessary anymore
 
     for item in rvr_list:
         runway = item[1:3] if item[3] == "/" else item[1:4]
@@ -142,55 +161,171 @@ def weather_code_rvr(weather_code):
         rvr_unavailable = False
 
         # Testing RVR availability
-        if re.search("/////", item):
+        if re.match("^R[0-9]{2}/////$", item) \
+        or re.match("^R[0-9]{2}[RCL]/////$", item):
             rvr_unavailable = True
         
-        # Testing RVR above or below
-        if item[4] == "M":
-            inf_sup = "below"
-        elif item[4] == "P":
-            inf_sup = "above"
+        # Retrieving RVR above or below if exist
+        if re.match("^R[0-9]{2}/[MP][0-9]{4}$", item) \
+        or re.match("^R[0-9]{2}/[MP][0-9]{4}[DUN]$", item):
+            if item[4] == "M":
+                inf_sup = "below"
+            elif item[4] == "P":
+                inf_sup = "above"
+        elif re.match("^R[0-9]{2}[RCL]/[MP][0-9]{4}$", item) \
+        or re.match("^R[0-9]{2}[RCL]/[MP][0-9]{4}[DUN]$", item):
+            if item[5] == "M":
+                inf_sup = "below"
+            elif item[5] == "P":
+                inf_sup = "above"
 
-        # Retrieving visibility and rvr trend if exist
-        if inf_sup != ("below" or "above"):
-            runway_visibility = item[4:8]
-            rvr_trend = item[8:]
-        elif inf_sup == ("below" or "above"):
-            runway_visibility = item[5:9]
-            rvr_trend = item[9:]
+        # Retrieving visibility
+        if re.match("^R[0-9]{2}/[0-9]{4}$", item):
+            runway_visibility = item[4:]
+        elif re.match("^R[0-9]{2}[RCL]/[0-9]{4}$", item) \
+        or re.match("^R[0-9]{2}/[MP][0-9]{4}$", item):
+            runway_visibility = item[5:]
+        elif re.match("^R[0-9]{2}/[0-9]{4}[DUN]$", item) \
+        or re.match("^R[0-9]{2}[RCL]/[0-9]{4}[DUN]$", item) \
+        or re.match("^R[0-9]{2}/[MP][0-9]{4}[DUN]$", item):
+            runway_visibility = item[5:-1]
+        elif re.match("^R[0-9]{2}[RCL]/[MP][0-9]{4}$", item):
+            runway_visibility = item[6:]
+        elif re.match("^R[0-9]{2}[RCL]/[MP][0-9]{4}[DUN]$", item):
+            runway_visibility = item[6:-1]
+
         
-        # Testing rvr trend if exist
-        if rvr_trend == "D":
-            rvr_trend = "decreasing"
-        elif rvr_trend == "U":
-            rvr_trend = "increasing"
-        elif rvr_trend == "N":
-            rvr_trend = "unchange"
+        # Retrieving rvr trend if exist
+        if re.match("^R[0-9]{2}/[0-9]{4}[DUN]$", item) \
+        or re.match("^R[0-9]{2}[RCL]/[0-9]{4}[DUN]$", item) \
+        or re.match("^R[0-9]{2}/[MP][0-9]{4}[DUN]$", item) \
+        or re.match("^R[0-9]{2}[RCL]/[MP][0-9]{4}[DUN]$", item):
+            if item[-1] == "D":
+                rvr_trend = "decreasing"
+            elif item[-1] == "U":
+                rvr_trend = "increasing"
+            elif item[-1] == "N":
+                rvr_trend = "unchanged"
+        
         
         # Adding up all information to decode
         if rvr_unavailable:
             rvr += f"RVR runway {runway} unavailable" 
-        elif inf_sup != "":
-            if rvr_trend != "":
-                rvr += f"RVR runway {runway} {inf_sup} {runway_visibility} meters {rvr_trend} ; "
-            else:
-                rvr += f"RVR runway {runway} {inf_sup} {runway_visibility} meters ; "
+        elif inf_sup != "" and rvr_trend != "":
+            rvr += f"RVR runway {runway} {inf_sup} {runway_visibility} meters {rvr_trend} ; "
+        elif inf_sup != "" and rvr_trend == "":
+            rvr += f"RVR runway {runway} {inf_sup} {runway_visibility} meters ; "
+        elif inf_sup == "" and rvr_trend != "":
+            rvr += f"RVR runway {runway} {runway_visibility} meters {rvr_trend} ; "
         else:
-            if rvr_trend != "":
-                rvr += f"RVR runway {runway} {runway_visibility} meters {rvr_trend} ; "
-            else:
-                rvr += f"RVR runway {runway} {runway_visibility} meters ; "
+            rvr += f"RVR runway {runway} {runway_visibility} meters ; "
     
     # Deleting the last characters
     rvr = rvr[:-3]
 
-    return rvr
+    if rvr != "":
+        WEATHER_CODE_DECODE.append(f"{rvr}.")
 
-def weather_code_present_wx(weather_code):
-    pass
+def present_weather(data):
+    global WEATHER_CODE_DECODE, TREND, INTENSITY_PROXIMITY, DESCRIPTION, PRECIPITATION, DARKENING, OTHER_PHENOMENA
 
-def weather_code_clouds(weather_code):
-    data = weather_code.split(" ")
+    present_weather_list = []
+    present_weather = ""
+    
+    for item in data:
+        if re.match("TEMPO", item) \
+        or re.match("BECMG", item) \
+        or re.match("FM", item) \
+        or re.match("AT", item) \
+        or re.match("TL", item) \
+        or re.match("RE", item) \
+        and TREND == False: # To separate current and trend weather
+            break
+        for key in INTENSITY_PROXIMITY.keys():
+            if re.search(key, item):
+                present_weather_list.append(INTENSITY_PROXIMITY[key])
+                break
+    
+    for item in data:
+        if re.match("TEMPO", item) \
+        or re.match("BECMG", item) \
+        or re.match("FM", item) \
+        or re.match("AT", item) \
+        or re.match("TL", item) \
+        or re.match("RE", item) \
+        and TREND == False: # To separate current and trend weather
+            break
+        for key in DESCRIPTION.keys():
+            if re.search(key, item):
+                present_weather_list.append(DESCRIPTION[key])
+                break
+    
+    for item in data:
+        if re.match("TEMPO", item) \
+        or re.match("BECMG", item) \
+        or re.match("FM", item) \
+        or re.match("AT", item) \
+        or re.match("TL", item) \
+        or re.match("RE", item) \
+        and TREND == False: # To separate current and trend weather
+            break
+        for key in PRECIPITATION.keys():
+            if re.search(key, item):
+                present_weather_list.append(PRECIPITATION[key])
+                break
+    
+    for item in data:
+        if re.match("TEMPO", item) \
+        or re.match("BECMG", item) \
+        or re.match("FM", item) \
+        or re.match("AT", item) \
+        or re.match("TL", item) \
+        or re.match("RE", item) \
+        and TREND == False: # To separate current and trend weather
+            break
+        for key in DARKENING.keys():
+            if re.search(key, item):
+                present_weather_list.append(DARKENING[key])
+                break
+    
+    for item in data:
+        if re.match("TEMPO", item) \
+        or re.match("BECMG", item) \
+        or re.match("FM", item) \
+        or re.match("AT", item) \
+        or re.match("TL", item) \
+        or re.match("RE", item) \
+        and TREND == False: # To separate current and trend weather
+            break
+        for key in OTHER_PHENOMENA.keys():
+            if re.search(key, item):
+                present_weather_list.append(OTHER_PHENOMENA[key])
+                break
+    
+    for item in data:
+        if re.match("TEMPO", item) \
+        or re.match("BECMG", item) \
+        or re.match("FM", item) \
+        or re.match("AT", item) \
+        or re.match("TL", item) \
+        or re.match("RE", item) \
+        and TREND == False: # To separate current and trend weather
+            break
+        if re.match("VC", item):
+            present_weather_list.append("in the vicinity")
+            
+        if re.match(("NSW"), item):
+            present_weather_list.append("No significant weather")
+    
+    for item in present_weather_list:
+        present_weather += f"{item}"
+    
+    if present_weather != "":
+            WEATHER_CODE_DECODE.append(f"{present_weather}.")
+
+def clouds(data):
+    global WEATHER_CODE_DECODE
+    
     clouds_list = []
     clouds = ""
 
@@ -198,10 +333,8 @@ def weather_code_clouds(weather_code):
     for item in data:
         if re.match("FEW", item) or re.match("SCT", item) or re.match("BKN", item) or re.match("OVC", item) \
         or re.match("NSC", item) or re.match("NCD", item) or re.match("VV///", item) or re.match("///CB", item) \
-        or re.match("///TCU", item) or re.match("/////", item):
-            clouds_list.append(item)
-    
-    print(clouds_list) # To delete when not necessary anymore
+        or re.match("///TCU", item) or re.match("//////", item): 
+            clouds_list.append(item) # No issues with wind as it will take last info if "/////"
 
     if clouds_list == []:
         return
@@ -231,42 +364,118 @@ def weather_code_clouds(weather_code):
 
     clouds = clouds[:-3]
 
-    return clouds
+    if clouds != "":
+        WEATHER_CODE_DECODE.append(f"{clouds}.")
 
-def weather_code_temperatures(weather_code):
-    data = weather_code.split(" ")
+def temperatures(data):
+    global WEATHER_CODE_DECODE
+    
     temperature = ""
 
     # Retrieving temperature information
     for item in data:
-        if re.match("^[0-9][0-9]/[0-9][0-9]$", item) or re.match("^[0-9][0-9]/M[0-9][0-9]$", item) \
-        or re.match("^M[0-9][0-9]/M[0-9][0-9]$", item) or re.match("/////", item): # To be mistaken with wind or clouds "/////"
+        if re.match("^[0-9]{2}/[0-9]{2}$", item) \
+        or re.match("^[0-9]{2}/M[0-9]{2}$", item) \
+        or re.match("^M[0-9]{2}/M[0-9]{2}$", item) \
+        or re.match("/////", item): 
+        # No risk to be mistaken with wind "/////" as item will go through all data
             temperature = item
 
     # Displaying decoded temperature information
-    if re.match("^[0-9][0-9]/[0-9][0-9]$", temperature):
-        return f"Temperature {temperature[:2]}°C, dewpoint {temperature[2:]}°C"
-    elif re.match("^[0-9][0-9]/M[0-9][0-9]$", temperature):
-        return f"Temperature {temperature[:2]}°C, dewpoint -{temperature[4:]}°C"
-    elif re.match("^M[0-9][0-9]/M[0-9][0-9]$", temperature):
-        return f"Temperature -{temperature[1:3]}°C, dewpoint -{temperature[5:]}°C"
+    if re.match("^[0-9]{2}/[0-9]{2}$", temperature):
+        WEATHER_CODE_DECODE.append(f"Temperature {temperature[:2]}°C, dewpoint {temperature[3:]}°C.")
+    elif re.match("^[0-9]{2}/M[0-9]{2}$", temperature):
+        WEATHER_CODE_DECODE.append(f"Temperature {temperature[:2]}°C, dewpoint -{temperature[4:]}°C.")
+    elif re.match("^M[0-9]{2}/M[0-9]{2}$", temperature):
+        WEATHER_CODE_DECODE.append(f"Temperature -{temperature[1:3]}°C, dewpoint -{temperature[5:]}°C.")
     elif re.match("/////", temperature):
-        return "Temperature information unavailable"
+        WEATHER_CODE_DECODE.append("Temperature information unavailable.")
 
-def weather_code_pressure(weather_code):
-    data = weather_code.split(" ")
-    pressure = ""
-
-    # Retrieving QNH information
-    for item in data:
-        if re.match("Q[0-9]", item) or re.match("Q////", item):
-            pressure = item
+def pressure(data):
+    global WEATHER_CODE_DECODE
     
-    # Displaying decoded QNH
-    if re.match("Q[0-9]", pressure):
-        return f"QNH {pressure[1:]}"
-    elif re.match("Q////", pressure):
-        return "QNH information unavailable"
+    for item in data:
+        if re.match("^Q[0-9]{4}$", item):
+            WEATHER_CODE_DECODE.append(f"QNH {item[1:]}.")
+        elif re.match("^Q[0-9]{4}=$", item):
+            WEATHER_CODE_DECODE.append(f"QNH {item[1:-1]}.")
+        elif re.match("^Q////$", item):
+            WEATHER_CODE_DECODE.append("QNH information unavailable.")
+            
+def additional(data):
+    global WEATHER_CODE_DECODE, INTENSITY_PROXIMITY, DESCRIPTION, PRECIPITATION, DARKENING, OTHER_PHENOMENA
+    
+    additional = ""
+    
+    for item in data:
+        if re.match("RE", item[:2]):
+            additional += "Recent"
+            for key in INTENSITY_PROXIMITY.keys():
+                if re.search(key, item):
+                    additional += f" {INTENSITY_PROXIMITY[key]}"
+            for key in DESCRIPTION.keys():
+                if re.search(key, item):
+                    additional += f" {DESCRIPTION[key]}"
+            for key in PRECIPITATION.keys():
+                if re.search(key, item):
+                    additional += f" {PRECIPITATION[key]}"
+            for key in DARKENING.keys():
+                if re.search(key, item):
+                    additional += f" {DARKENING[key]}"
+            for key in OTHER_PHENOMENA.keys():
+                if re.search(key, item):
+                    additional += f" {OTHER_PHENOMENA[key]}"
+        elif re.match("WS R", item):
+            additional += "Windshear detected"
+                
+    if additional != "":
+        WEATHER_CODE_DECODE.append(f"{additional}.")
 
-def weather_code_trend(weather_code):
-    pass
+def trend(data):
+    global WEATHER_CODE_DECODE, TREND
+    
+    trend_list = []
+    
+    for item in data:
+        if re.match("TEMPO", item) \
+        or re.match("BECMG", item) \
+        or re.match("NOSIG", item) \
+        or re.match("^FM[0-9]{4}", item) \
+        or re.match("^AT[0-9]{4}", item) \
+        or re.match("^TL[0-9]{4}", item):
+            trend_list.append(item)
+            TREND = True
+            continue # Prevent adding 2 times
+        if TREND == True:
+            trend_list.append(item)
+            
+    if trend_list == []:
+        return
+    
+    for item in trend_list:
+        if re.match("^FM[0-9]{4}", item):
+            WEATHER_CODE_DECODE.append(f"from {item[2:]}.")
+            continue
+        elif re.match("^AT[0-9]{4}", item):
+            WEATHER_CODE_DECODE.append(f"at {item[2:]}.")
+            continue
+        elif re.match("^TL[0-9]{4}", item):
+            WEATHER_CODE_DECODE.append(f"until {item[2:]}.")
+            continue
+        elif item == "TEMPO":
+            WEATHER_CODE_DECODE.append("Temporarily:")
+            continue
+        elif item == "BECMG":
+            WEATHER_CODE_DECODE.append("Becoming:")
+            continue
+        elif item == "NOSIG":
+            WEATHER_CODE_DECODE("No significant change in the next 2 hours.")
+            return
+        
+        wind([item])
+        visibility([item])
+        rvr([item])
+        present_weather([item])
+        clouds([item])
+        temperatures([item])
+        pressure([item])
