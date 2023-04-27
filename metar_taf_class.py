@@ -1,95 +1,97 @@
 import re
 
+from metar_taf_decode_test import*
+from metar_taf_globals import*
+
 class Metar:
     def __init__(self, data):
         self.data = data
-        print(self.data)
-
-    def terrain_id(self):
-        pass
-
-    def wind(self):
-        wind_info = ""
-        wind_variable = ""
-        gust = False
-        variable = False
-
-        # retrieving wind direction and velocity information
-        for item in self.data:
-            if "KT" in item:
-                wind_info = item
-            if re.match("[0-9][0-9][0-9]V[0-9][0-9][0-9]", item):
-                variable = True
-                wind_info += item
-
-        # testing presence of gust
-        for item in wind_info:
-            if "G" in item:
-                gust = True
+        #print(self.data)
         
-        # decoding wind
-        if not gust:
-            if not variable:
-                print(f"WIND: {wind_info[:3]}°, {wind_info[3:5]} knots")
+    def __str__(self):
+        return self.data
+        
+    def decode(self):
+        global WEATHER_CODE_DECODE
+        
+        data = self.data.split(" ")
+        
+        for item in data:
+            if re.match("SPECI", item):
+                WEATHER_CODE_DECODE.append("Special message from")
             else:
-                print(f"WIND: {wind_info[:3]}°, {wind_info[3:5]} knots, variable between {wind_info[7:10]}° and {wind_info[11:]}°")
-        else:
-            if not variable:
-                print(f"WIND: {wind_info[:3]}°, {wind_info[3:5]} knots, gusting to {wind_info[6:8]} knots")
-            else:
-                print(f"WIND: {wind_info[:3]}°, {wind_info[3:5]} knots, gusting to {wind_info[6:8]} knots, \
-variable between {wind_info[10:13]}° and {wind_info[14:]}°")
-
-    def visibility(self):
-        # testing the presence of CAVOK
-        for item in self.data:
-            if re.search("CAVOK", item):
-                print("VISIBILITY: Ceiling and Visibility OK")
-                return
-
-    def clouds(self):
-        cloud_info = []
-        cloud_type = {"FEW": "Few", "SCT": "Scattered", "BKN": "Broken", "OVC": "Overcast"}
-
-        # Testing the presence of "CAVOK"
-        for item in self.data:
-            if re.search("CAVOK", item):
-                return
-        # Adding items to clound_info for decode
-        for item in self.data:
-            if re.search("FEW", item):
-                cloud_info.append(item)
-            elif re.search("SCT", item):
-                cloud_info.append(item)
-            elif re.search("BKN", item):
-                cloud_info.append(item)
-            elif re.search("OVC", item):
-                cloud_info.append(item)
+                WEATHER_CODE_DECODE.append("Observation message from")
+                break
         
-
-        # Decoding clound type and altitude
-        print("CLOUDS:", end=" ")
-
-        for item in cloud_info:
-            for n, c in cloud_type.items():
-                if item[:3] == n:
-                    if item[3] != 0:
-                        print(f"{c} {int(item[3:6] ) * 100} feet", end=" ")
-                    else:
-                        print(f"{c} {int(item[4:6] ) * 100} feet", end=" ")
+        identification(data)
         
-        print("")
-
-    def temperatures(self):
-        pass
-
-    def pressure(self):
-        pass
-
-    def trend(self):
-        pass
-
-
-class Taf(Metar):
+        # Correcting capital letter if option added (only applicable to Metar)
+        if WEATHER_CODE_DECODE[0] == "Automated" or "Corrected":
+            if WEATHER_CODE_DECODE[1] == "Observation message from":
+                WEATHER_CODE_DECODE[1] = "observation message from"
+            elif WEATHER_CODE_DECODE[1] == "Special message from":
+                WEATHER_CODE_DECODE[1] = "special message from"
+                
+        wind(data)
+        visibility(data)
+        rvr(data)
+        WEATHER_CODE_DECODE.append("Present weather")
+        present_weather(data)
+        clouds(data)
+        temperatures(data)
+        pressure(data)
+        additional(data)
+        trend(data)
+        
+    
+    def display(self):
+        global WEATHER_CODE_DECODE
+        
+        for item in WEATHER_CODE_DECODE:
+            print(item, end=" ")
+        
+class Taf:
     def __init__(self, data):
         self.data = data
+        
+    def __str__(self):
+        return self.data
+
+    def decode(self):
+        global WEATHER_CODE_DECODE, TAF
+        
+        data = self.data.split(" ")
+        
+        data_copy = data
+        
+        WEATHER_CODE_DECODE.append("Weather forcast from")
+        
+        identification(data_copy)
+        
+        for item in data_copy:
+            if re.match("[0-9]{4}/[0-9]{4}", item):
+                break
+            else:
+                data_copy = data_copy[1:]
+        
+        while data_copy != []:
+            for item in data_copy:
+                if re.match("[0-9]{4}/[0-9]{4}", item):
+                    WEATHER_CODE_DECODE.append(f"From the {item[:2]} of current month at {item[2:4]} UTC to the {item[5:7]} of current month at {item[7:]} UTC.")
+                    data_copy = data_copy[1:]
+                else:
+                    wind([item])
+                    visibility([item])
+                    rvr([item])
+                    present_weather([item])
+                    clouds([item])
+                    temperatures([item])
+                    pressure([item])
+                    
+                    data_copy = data_copy[1:]
+    
+    def display(self):
+        global WEATHER_CODE_DECODE
+        
+        for item in WEATHER_CODE_DECODE:
+            print(item, end=" ")
