@@ -1,7 +1,7 @@
 import re
 
-from metar_taf_decode_test import*
-from metar_taf_class_test import*
+from metar_taf_decode import*
+from metar_taf_class import*
 from metar_taf_globals import*
 
 def main():

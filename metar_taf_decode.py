@@ -469,7 +469,7 @@ def trend(data):
             WEATHER_CODE_DECODE.append("Becoming:")
             continue
         elif item == "NOSIG":
-            WEATHER_CODE_DECODE("No significant change in the next 2 hours.")
+            WEATHER_CODE_DECODE.append("No significant change in the next 2 hours.")
             return
         
         wind([item])
